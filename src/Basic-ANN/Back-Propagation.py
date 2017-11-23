@@ -8,7 +8,7 @@ def get_random(rand_min, rand_max):
 
 
 def train_network(network, training_data, iterations, num_inputs, learning_rate):
-    # print_network_topology(network)
+    print_network_topology(network)
     # print(training_data)
     # print("Iterations: ", iterations)
     # print("Inputs: ", num_inputs)
@@ -23,7 +23,7 @@ def train_network(network, training_data, iterations, num_inputs, learning_rate)
             training_outputs = datum[num_inputs : len(datum)]
 
             forward_propagate(network, training_inputs)
-            outputs = network[-1][0]["outputs"]
+            output_layer = network[-1]
 
             back_propagate_error(network, training_outputs)
             calculate_error_derivatives_for_weights(network, training_inputs)
@@ -38,44 +38,33 @@ def forward_propagate(network, inputs):
 
         # Set layer_inputs
         if (i == 0):
-            layer_inputs.append(inputs)
+            layer_inputs = inputs
         else:
             previous_layer = network[i - 1]
             for neuron in previous_layer:
-                layer_inputs.append(neuron["outputs"])
+                layer_inputs.append(neuron["output"])
 
         # Activate neurons
         for neuron in layer:
             neuron["activation"] = activate(neuron["weights"], layer_inputs)
-            neuron["outputs"] = transfer(neuron["activation"])
+            neuron["output"] = transfer(neuron["activation"])
             # print(neuron["activation"])
-            # print(neuron["outputs"])
+            # print(neuron["output"])
             # print()
 
 
-def activate(weights, inputs, bias = (1.0,1.0)):
+def activate(weights, inputs, bias = 1.0):
     # for each qubit
-    num_qubits = len(inputs[0])
-    activation_set = []
-    for q in range(num_qubits):
-        alpha_sum = weights[-1][q][0] * bias[0]
-        beta_sum = weights[-1][q][1] * bias[1]
-        for i in range(len(inputs)):
-            alpha_sum += weights[i][q][0] * inputs[i][q][0]
-            beta_sum += weights[i][q][1] * inputs[i][q][1]
-        activation_set.append((alpha_sum, beta_sum))
-    return activation_set
+    activation_sum = weights[-1] * bias
+    for i in range(len(inputs)):
+        activation_sum += weights[i] * inputs[i]
+    return activation_sum
 
 
 
 def transfer(activation):
     # Sigmoid
-    transfer = []
-    for qubit in activation:
-        alpha = 1.0 / (1.0 + math.exp(-qubit[0]))
-        beta = 1.0 / (1.0 + math.exp(-qubit[1]))
-        transfer.append((alpha, beta))
-    return transfer
+    return 1.0 / (1.0 + math.exp(-activation))
 
 def transfer_derivative(output):
     # Sigmoid derivative
@@ -89,35 +78,20 @@ def back_propagate_error(network, expected_outputs):
 
         # Output Layer
         if (index == len(network) - 1):
-            neuron = layer[0]
-            for q in range(len(expected_outputs)):
-                alpha_error = expected_outputs[q][0] - neuron["outputs"][q][0]
-                beta_error = expected_outputs[q][1] - neuron["outputs"][q][1]
-
-                alpha_delta = alpha_error * transfer_derivative(neuron["outputs"][q][0])
-                beta_delta = beta_error * transfer_derivative(neuron["outputs"][q][1])
-                neuron["delta"].append((alpha_delta, beta_delta))
+            for j in range(len(layer)):
+                neuron = layer[j]
+                error = expected_outputs[j] - neuron["output"]
+                neuron["delta"] = error * transfer_derivative(neuron["output"])
+        # Hidden Layers
         else:
             next_layer = network[index + 1]
             for j in range(len(layer)):
                 neuron = layer[j]
-                total_delta = [0.0, 0.0]
-                for q in range(len(expected_outputs)):
-                    alpha_error_sum = 0.0
-                    beta_error_sum = 0.0
-                    for next_neuron in next_layer:
-                        alpha_error_sum += next_neuron["weights"][j][q][0] * next_neuron["delta"][q][0]
-                        beta_error_sum += next_neuron["weights"][j][q][1] * next_neuron["delta"][q][1]
-                    alpha_delta = alpha_error_sum * transfer_derivative(neuron["outputs"][q][0])
-                    beta_delta = beta_error_sum * transfer_derivative(neuron["outputs"][q][1])
-                    neuron["delta"].append((alpha_delta, beta_delta))
-                    # Accumulate to total delta
-                    total_delta[0] += alpha_delta
-                    total_delta[1] += beta_delta
-                # Bia's Delta
-                neuron["total_delta"] = total_delta
+                error_sum = 0.0
+                for next_neuron in next_layer:
+                    error_sum += next_neuron["weights"][j] * next_neuron["delta"]
+                neuron["delta"] = error_sum * transfer_derivative(neuron["output"])
                 # print(neuron["delta"])
-                # print(neuron["total_delta"])
                 # print()
 
 
@@ -128,25 +102,19 @@ def calculate_error_derivatives_for_weights(network, inputs):
 
         # First Hidden Layer
         if (i == 0):
-            layer_inputs.append(inputs)
+            layer_inputs = inputs
         else:
             previous_layer = network[i - 1]
             for neuron in previous_layer:
-                layer_inputs.append(neuron["outputs"])
+                layer_inputs.append(neuron["output"])
 
         # Calculate
         for neuron in layer:
             for j in range(len(layer_inputs)):
-                qubit_set = layer_inputs[j]
-                for q in range(len(qubit_set)):
-                    alpha_signal = qubit_set[q][0]
-                    beta_signal = qubit_set[q][1]
-                    neuron["deriv"][j][q][0] += neuron["delta"][q][0] * alpha_signal
-                    neuron["deriv"][j][q][1] += neuron["delta"][q][1] * beta_signal
+                signal = layer_inputs[j]
+                neuron["deriv"][j] += neuron["delta"] * signal
             # Bias's weight
-            for q in range(len(layer_inputs[0])):
-                neuron["deriv"][-1][q][0] += neuron["delta"][q][0] * 1.0
-                neuron["deriv"][-1][q][1] += neuron["delta"][q][1] * 1.0
+            neuron["deriv"][-1] += neuron["delta"] * 1.0
             # print(neuron["deriv"])
             # print()
 
@@ -155,21 +123,12 @@ def update_weights(network, learning_rate, mom=0.8):
     for layer in network:
         for neuron in layer:
             for i in range(len(neuron["weights"])):
-                for j in range(len(neuron["weights"][i])):
-                    # handle bias vs. input weights
-                    current_delta = neuron["last_total_delta"] if (j == (len(neuron["weights"][i]) - 1)) else neuron["last_delta"][i][j]
-                    # adjust weights
-                    alpha_delta = (learning_rate * neuron["deriv"][i][j][0]) + (current_delta[0] * mom)
-                    beta_delta = (learning_rate * neuron["deriv"][i][j][1]) + (current_delta[1] * mom)
-                    current_delta[0] = alpha_delta
-                    current_delta[1] = beta_delta
-                    neuron["weights"][i][j][0] += alpha_delta
-                    neuron["weights"][i][j][1] += beta_delta
-                    neuron["deriv"][i][j][0] = 0.0
-                    neuron["deriv"][i][j][1] = 0.0
-            # print(neuron["weights"])
-            # print(neuron["last_total_delta"])
-            # print()
+                delta = (learning_rate * neuron["deriv"][i]) + (neuron["last_delta"][i] * mom)
+                neuron["weights"][i] += delta
+                neuron["last_delta"][i] = delta
+                neuron["deriv"][i] = 0.0
+                # print(neuron["weights"])
+                # print()
 
 
 
@@ -184,50 +143,38 @@ def test_network(network, test_data, num_inputs):
         test_outputs = datum[num_inputs : len(datum)]
 
         forward_propagate(network, test_inputs)
-        outputs = network[-1][0]["outputs"]
+        output_layer = network[-1]
 
-        for q in range(len(outputs)):
-            alpha_error = abs(outputs[q][0] - test_outputs[q][0]) * 100
-            beta_error = abs(outputs[q][1] - test_outputs[q][1]) * 100
-            print("Qubit", q+1)
-            print("Alpha:")
-            print("\tExpected:  ", test_outputs[q][0])
-            print("\tActual:    ", outputs[q][0])
-            print("\tError: ", alpha_error)
-            print("Beta:")
-            print("\tExpected:  ", test_outputs[q][1])
-            print("\tActual:    ", outputs[q][1])
-            print("\tError: ", beta_error)
+        for j in range(len(output_layer)):
+            output = output_layer[j]["output"]
+            percent_difference = abs(output - test_outputs[j]) * 100
+            print("\tExpected: ", test_outputs[j])
+            print("\tActual:   ", output)
+            print("\tPercent Diff: ", percent_difference)
             print()
         print()
 
 
 
 
-def initialize_weights(num_weights, num_outputs):
+def initialize_weights(num_weights):
     weights = []
     rand_min = 0
     rand_max = 0.5
     for i in range(num_weights):
-        weight_set = []
-        for j in range(num_outputs):
-            randAlpha = get_random(rand_min, rand_max)
-            randBeta = get_random(rand_min, rand_max)
-            weight_set.append([randAlpha, randBeta])
-        weights.append(weight_set)
+        rand = get_random(rand_min, rand_max)
+        weights.append(rand)
     return weights
 
 
-def build_neuron(num_inputs, num_outputs):
+def build_neuron(num_inputs):
     neuron = {}
     neuron["activation"] = None
-    neuron["delta"] = [] * num_outputs
-    neuron["deriv"] = [[[0.0, 0.0]] * num_outputs] * (num_inputs + 1)
-    neuron["last_delta"] = [[[0.0, 0.0]] * num_outputs] * (num_inputs + 1)
-    neuron["outputs"] = None
-    neuron["total_delta"] = None
-    neuron["last_total_delta"] = [0.0, 0.0]
-    neuron["weights"] = initialize_weights(num_inputs + 1, num_outputs)
+    neuron["delta"] = None
+    neuron["deriv"] = [0.0] * (num_inputs + 1)
+    neuron["last_delta"] = [0.0] * (num_inputs + 1)
+    neuron["output"] = None
+    neuron["weights"] = initialize_weights(num_inputs + 1)
     return neuron
 
 
@@ -236,22 +183,22 @@ def build_network(hidden_layer_pattern, num_inputs):
 
     # Add hidden layers
     num_layer_inputs = num_inputs
-    num_outputs = num_inputs
 
     for i in range(len(hidden_layer_pattern)):
         layer = []
         num_neurons = hidden_layer_pattern[i]
         for j in range(num_neurons):
-            neuron = build_neuron(num_layer_inputs, num_outputs)
+            neuron = build_neuron(num_layer_inputs)
             layer.append(neuron)
         network.append(layer)
         num_layer_inputs = num_neurons
 
     # Build Output Layer
     output_layer = []
-    # for i in range(num_outputs):
-    neuron = build_neuron(num_layer_inputs, num_outputs)
-    output_layer.append(neuron)
+    num_outputs = num_inputs
+    for i in range(num_outputs):
+        neuron = build_neuron(num_layer_inputs)
+        output_layer.append(neuron)
     network.append(output_layer)
 
     return network
@@ -275,23 +222,29 @@ if __name__ == "__main__":
     print("QUANTUM NETWORK COMENSING")
 
     # Build Network
-    my_num_inputs = 1
-    my_hidden_layers = [2, 2]
+    my_num_inputs = 2
+    my_hidden_layers = [5]
     my_network = build_network(my_hidden_layers, my_num_inputs)
-    print_network_topology(my_network)
 
     #Training and Test Data
     my_training_data = [
         [0, 1, 1, 0],
-        [0.25, 0.75, 0.75, 0.25],
-        [0.5, 0.5, 0.5, 0.5],
-        [0.75, 0.25, 0.25, 0.75]
+        [0.92, 0.3919183588, 0.3919183588, 0.92],
+        [0.82, 0.5723635209, 0.5723635209, 0.82],
+        [0.72, 0.6939740629, 0.6939740629, 0.72],
+        [0.62, 0.7846018098, 0.7846018098, 0.62],
+        [0.52, 0.8541662602, 0.8541662602, 0.52],
+        [0.42, 0.9075241044, 0.9075241044, 0.42],
+        [0.32, 0.9474175426, 0.9474175426, 0.32],
+        [0.22, 0.9754998719, 0.9754998719, 0.22],
+        [0.12, 0.9927738917, 0.9927738917, 0.12],
+        [0.02, 0.99979998, 0.99979998, 0.02],
         [1, 0, 0, 1]
     ]
     my_test_data = my_training_data
 
     # TRAIN ANN
-    my_num_iterations = 100
+    my_num_iterations = 5000
     my_learning_rate = 0.3
     train_network(my_network, my_training_data, my_num_iterations, my_num_inputs, my_learning_rate)
     test_network(my_network, my_test_data, my_num_inputs)
