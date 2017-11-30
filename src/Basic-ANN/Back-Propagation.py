@@ -1,7 +1,7 @@
 import math
 import random
 
-from TrainingData import dataReader
+import dataReader
 
 # import matplotlib.pyplot as plt
 
@@ -10,7 +10,15 @@ def get_random(rand_min, rand_max):
     return rand_min + ((rand_max - rand_min) * random.random())
 
 
-def train_network(network, training_data, iterations, num_inputs, learning_rate):
+# Translates range from [-1,1] to [0,1]
+def shrink_range(values):
+    translation = []
+    for v in values:
+        translation.append((v / 2) + 0.5)
+    return translation
+
+
+def train_network(network, training_data, iterations, num_inputs, bias, learning_rate, momentum):
     print_network_topology(network)
     # print(training_data)
     # print("Iterations: ", iterations)
@@ -21,20 +29,22 @@ def train_network(network, training_data, iterations, num_inputs, learning_rate)
             # Grab training datum in random order
             datum_index = round(get_random(0, len(training_data_clone) - 1))
             datum = training_data_clone.pop(datum_index)
+            # transform data range [-1,1] --> [0,1]
+            translated_datum = shrink_range(datum)
 
-            training_inputs = datum[0 : (num_inputs)]
-            training_outputs = datum[num_inputs : len(datum)]
+            training_inputs = translated_datum[0 : (num_inputs)]
+            training_outputs = translated_datum[num_inputs : len(translated_datum)]
 
-            forward_propagate(network, training_inputs)
+            forward_propagate(network, training_inputs, bias)
             output_layer = network[-1]
 
             back_propagate_error(network, training_outputs)
             calculate_error_derivatives_for_weights(network, training_inputs)
-        update_weights(network, learning_rate)
+        update_weights(network, learning_rate, momentum)
 
 
 
-def forward_propagate(network, inputs):
+def forward_propagate(network, inputs, bias):
     for i in range(len(network)):
         layer = network[i]
         layer_inputs = []
@@ -49,14 +59,14 @@ def forward_propagate(network, inputs):
 
         # Activate neurons
         for neuron in layer:
-            neuron["activation"] = activate(neuron["weights"], layer_inputs)
+            neuron["activation"] = activate(neuron["weights"], layer_inputs, bias)
             neuron["output"] = transfer(neuron["activation"])
             # print(neuron["activation"])
             # print(neuron["output"])
             # print()
 
 
-def activate(weights, inputs, bias = 1.0):
+def activate(weights, inputs, bias):
     # for each qubit
     activation_sum = weights[-1] * bias
     for i in range(len(inputs)):
@@ -122,11 +132,11 @@ def calculate_error_derivatives_for_weights(network, inputs):
             # print()
 
 
-def update_weights(network, learning_rate, mom=0.8):
+def update_weights(network, learning_rate, momentum):
     for layer in network:
         for neuron in layer:
             for i in range(len(neuron["weights"])):
-                delta = (learning_rate * neuron["deriv"][i]) + (neuron["last_delta"][i] * mom)
+                delta = (learning_rate * neuron["deriv"][i]) + (neuron["last_delta"][i] * momentum)
                 neuron["weights"][i] += delta
                 neuron["last_delta"][i] = delta
                 neuron["deriv"][i] = 0.0
@@ -136,26 +146,35 @@ def update_weights(network, learning_rate, mom=0.8):
 
 
 
-def test_network(network, test_data, num_inputs):
-    print("Testing Network...")
+def test_network(network, test_data, num_inputs, bias, print_out):
+    percent_difference_sum = 0
+    count = 0
+    if (print_out): print("Testing Network...")
     for i in range(len(test_data)):
-        print("Input", i+1)
+        if (print_out): print("Input", i+1)
         # Grab test datum in random order
         datum = test_data[i]
-        test_inputs = datum[0 : (num_inputs)]
-        test_outputs = datum[num_inputs : len(datum)]
+        translated_datum = shrink_range(datum)
 
-        forward_propagate(network, test_inputs)
+        test_inputs = translated_datum[0 : (num_inputs)]
+        test_outputs = translated_datum[num_inputs : len(translated_datum)]
+
+        forward_propagate(network, test_inputs, bias)
         output_layer = network[-1]
 
         for j in range(len(output_layer)):
             output = output_layer[j]["output"]
             percent_difference = abs(output - test_outputs[j]) * 100
-            print("\tExpected: ", test_outputs[j])
-            print("\tActual:   ", output)
-            print("\tPercent Diff: ", percent_difference)
-            print()
-        print()
+            percent_difference_sum += percent_difference
+            count += 1
+            if (print_out):
+                print("\tExpected: ", test_outputs[j])
+                print("\tActual:   ", output)
+                print("\tPercent Diff: ", percent_difference)
+                print()
+        if (print_out): print()
+    average_accuracy = 100 - (percent_difference_sum / count)
+    return average_accuracy
 
 
 
@@ -224,39 +243,25 @@ def print_network_topology(network):
 if __name__ == "__main__":
     print("QUANTUM NETWORK COMENSING")
 
-    # Build Network
+    # Network Training Inputs
     my_num_inputs = 2
-    my_hidden_layers = [5]
+    my_hidden_layers = [5] # Gene
+    my_num_iterations = 15000 # Gene
+    my_bias  = 1.0 # Gene
+    my_learning_rate = 0.3 # Gene
+    my_momentum = 0.8 # Gene
+    my_data_gap = 50 # Gene
+
+    # Data Sets
+    notGateData = dataReader.openFile("TrainingData/NOTGate.csv")
+    hadamardGateData = dataReader.openFile("TrainingData/HADAMARDGate.csv")
+
+    # Training and Test Data
+    my_training_data = dataReader.createTrainingData(hadamardGateData, my_data_gap)
+    my_test_data = dataReader.createTrainingData(hadamardGateData, 1) # test on all available daata
+
+    # Build - Train - Test Network
     my_network = build_network(my_hidden_layers, my_num_inputs)
-
-    #Training and Test Data
-
-    rawData = dataReader.openFile("TrainingData/Input.csv")
-
-    my_data_density = 5
-    my_training_data = dataReader.createTrainingData(rawData, my_data_density, 'not')
-
-    # print(my_training_data)
-
-    my_test_data = my_training_data
-
-    # my_training_data = [
-    #     [0, 1, 1, 0],
-    #     [0.92, 0.3919183588, 0.3919183588, 0.92],
-    #     [0.82, 0.5723635209, 0.5723635209, 0.82],
-    #     [0.72, 0.6939740629, 0.6939740629, 0.72],
-    #     [0.62, 0.7846018098, 0.7846018098, 0.62],
-    #     [0.52, 0.8541662602, 0.8541662602, 0.52],
-    #     [0.42, 0.9075241044, 0.9075241044, 0.42],
-    #     [0.32, 0.9474175426, 0.9474175426, 0.32],
-    #     [0.22, 0.9754998719, 0.9754998719, 0.22],
-    #     [0.12, 0.9927738917, 0.9927738917, 0.12],
-    #     [0.02, 0.99979998, 0.99979998, 0.02],
-    #     [1, 0, 0, 1]
-    # ]
-
-    # TRAIN ANN
-    my_num_iterations = 5000
-    my_learning_rate = 0.3
-    train_network(my_network, my_training_data, my_num_iterations, my_num_inputs, my_learning_rate)
-    test_network(my_network, my_test_data, my_num_inputs)
+    train_network(my_network, my_training_data, my_num_iterations, my_num_inputs, my_bias, my_learning_rate, my_momentum)
+    my_network_accuracy = test_network(my_network, my_test_data, my_num_inputs, my_bias, False)
+    print("Average Network Accuracy:", my_network_accuracy, "%")
