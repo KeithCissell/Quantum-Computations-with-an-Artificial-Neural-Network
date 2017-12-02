@@ -244,9 +244,8 @@ if __name__ == "__main__":
     print("QUANTUM NETWORK COMENSING")
 
     # Network Training Inputs
-    my_num_inputs = 2
     my_hidden_layers = [5] # Gene
-    my_num_iterations = 15000 # Gene
+    my_num_iterations = 1500 # Gene
     my_bias  = 1.0 # Gene
     my_learning_rate = 0.3 # Gene
     my_momentum = 0.8 # Gene
@@ -259,6 +258,7 @@ if __name__ == "__main__":
     # Training and Test Data
     my_training_data = dataReader.createTrainingData(hadamardGateData, my_data_gap)
     my_test_data = dataReader.createTrainingData(hadamardGateData, 1) # test on all available daata
+    my_num_inputs = int(round(len(my_test_data[0]) / 2))
 
     # Build - Train - Test Network
     my_network = build_network(my_hidden_layers, my_num_inputs)
