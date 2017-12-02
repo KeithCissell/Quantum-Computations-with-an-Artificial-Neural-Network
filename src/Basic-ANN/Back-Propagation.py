@@ -2,6 +2,7 @@ import math
 import random
 
 import dataReader
+import generateData
 
 # import matplotlib.pyplot as plt
 
@@ -254,9 +255,16 @@ if __name__ == "__main__":
     # Data Sets
     notGateData = dataReader.openFile("TrainingData/NOTGate.csv")
     hadamardGateData = dataReader.openFile("TrainingData/HADAMARDGate.csv")
+    phaseFlipGateData = dataReader.openFile("TrainingData/PFLIPGate.csv")
+    swapGateData = dataReader.openFile("TrainingData/SWAPGate.csv")
+    cNotGateData = dataReader.openFile("TrainingData/CNOTGate.csv")
+    cHadamardGateData = dataReader.openFile("TrainingData/CHADAMARDGate.csv")
+    cPhaseFlipGateData = dataReader.openFile("TrainingData/CPFLIPGate.csv")
+    toffolinGateData = dataReader.openFile("TrainingData/TOFFOLIGate.csv") #aka CCNOT Gate
+    fredkinGateData = dataReader.openFile("TrainingData/FREDKINGate.csv") #aka CSWAP Gate
 
     # Training and Test Data
-    my_training_data = dataReader.createTrainingData(hadamardGateData, my_data_gap)
+    my_training_data = dataReader.createTrainingData(fredkinGateData, my_data_gap)
     my_test_data = dataReader.createTrainingData(hadamardGateData, 1) # test on all available daata
     my_num_inputs = int(round(len(my_test_data[0]) / 2))
 
