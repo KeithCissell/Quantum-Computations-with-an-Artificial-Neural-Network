@@ -1,8 +1,7 @@
 import math
 import random
 
-import dataReader
-import generateData
+from DataRW import dataReader
 
 # import matplotlib.pyplot as plt
 
@@ -20,7 +19,7 @@ def shrink_range(values):
 
 
 def train_network(network, training_data, iterations, num_inputs, bias, learning_rate, momentum):
-    print_network_topology(network)
+    # print_network_topology(network)
     # print(training_data)
     # print("Iterations: ", iterations)
     # print("Inputs: ", num_inputs)
@@ -78,7 +77,10 @@ def activate(weights, inputs, bias):
 
 def transfer(activation):
     # Sigmoid
-    return 1.0 / (1.0 + math.exp(-activation))
+    if (activation > 700): activation = 700
+    if (activation < -700): activation = -700
+
+    return 1.0 / (1.0 + math.exp(-1.0 * activation))
 
 def transfer_derivative(output):
     # Sigmoid derivative
@@ -165,7 +167,7 @@ def test_network(network, test_data, num_inputs, bias, print_out):
 
         for j in range(len(output_layer)):
             output = output_layer[j]["output"]
-            percent_difference = abs(output - test_outputs[j]) * 100
+            percent_difference = abs(output - test_outputs[j])
             percent_difference_sum += percent_difference
             count += 1
             if (print_out):
@@ -174,7 +176,7 @@ def test_network(network, test_data, num_inputs, bias, print_out):
                 print("\tPercent Diff: ", percent_difference)
                 print()
         if (print_out): print()
-    average_accuracy = 100 - (percent_difference_sum / count)
+    average_accuracy = 1.0 - (percent_difference_sum / count)
     return average_accuracy
 
 
@@ -246,7 +248,7 @@ if __name__ == "__main__":
 
     # Network Training Inputs
     my_hidden_layers = [5] # Gene
-    my_num_iterations = 1500 # Gene
+    my_num_iterations = 5000 # Gene
     my_bias  = 1.0 # Gene
     my_learning_rate = 0.3 # Gene
     my_momentum = 0.8 # Gene
@@ -265,11 +267,11 @@ if __name__ == "__main__":
 
     # Training and Test Data
     my_training_data = dataReader.createTrainingData(fredkinGateData, my_data_gap)
-    my_test_data = dataReader.createTrainingData(hadamardGateData, 1) # test on all available daata
+    my_test_data = dataReader.createTrainingData(fredkinGateData, 1) # test on all available daata
     my_num_inputs = int(round(len(my_test_data[0]) / 2))
 
     # Build - Train - Test Network
     my_network = build_network(my_hidden_layers, my_num_inputs)
     train_network(my_network, my_training_data, my_num_iterations, my_num_inputs, my_bias, my_learning_rate, my_momentum)
     my_network_accuracy = test_network(my_network, my_test_data, my_num_inputs, my_bias, False)
-    print("Average Network Accuracy:", my_network_accuracy, "%")
+    print("Average Network Accuracy:", my_network_accuracy * 100, "%")
