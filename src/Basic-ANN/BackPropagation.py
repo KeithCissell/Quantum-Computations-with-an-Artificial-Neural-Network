@@ -275,3 +275,5 @@ if __name__ == "__main__":
     train_network(my_network, my_training_data, my_num_iterations, my_num_inputs, my_bias, my_learning_rate, my_momentum)
     my_network_accuracy = test_network(my_network, my_test_data, my_num_inputs, my_bias, False)
     print("Average Network Accuracy:", my_network_accuracy * 100, "%")
+
+    input("Press any key to exit")

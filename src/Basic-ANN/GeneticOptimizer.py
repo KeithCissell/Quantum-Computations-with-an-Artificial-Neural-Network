@@ -37,7 +37,7 @@ def optimize_ANN(data, iterations, pop_size, selection_rate, accuracy_weight, ef
             layers = [num_inputs] + hidden_layers + [num_inputs]
             for k in range(1, len(layers)):
                 layer_connections += layers[k-1] * layers[k]
-            network_efficiency = 1 - (layer_connections / (num_inputs * 6 * num_inputs)) # inverse of: conections / highest connections possible
+            network_efficiency = 1 - (layer_connections / ((num_inputs * 6) + (6 * num_inputs))) # inverse of: conections / highest connections possible
             population[j][2] = network_efficiency
             network_training_time = layer_connections * iterations * len(training_data)
             print("\tO(n) =", network_training_time)
@@ -218,3 +218,5 @@ if __name__ == "__main__":
 
     # Build - Train - Test Network
     optimize_ANN(my_data, my_iterations, my_pop_size, my_selection_rate, my_accuracy_weight, my_efficiency_weight, my_benchmark)
+    
+    input("Press any key to exit")
