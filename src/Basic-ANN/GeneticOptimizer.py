@@ -6,7 +6,7 @@ import BackPropagation as BP
 
 
 
-def optimize_ANN(data, iterations, pop_size, selection_rate, benchmark):
+def optimize_ANN(data, iterations, pop_size, selection_rate, accuracy_weight, efficiency_weight, benchmark):
     population = init_population(pop_size)
     mutation_rate = 1.0
 
@@ -37,7 +37,7 @@ def optimize_ANN(data, iterations, pop_size, selection_rate, benchmark):
             layers = [num_inputs] + hidden_layers + [num_inputs]
             for k in range(1, len(layers)):
                 layer_connections += layers[k-1] * layers[k]
-            network_efficiency = 1 - (layer_connections / (num_inputs * 6 * num_inputs)) # inverse of: conections / highest connections possible
+            network_efficiency = 1 - (layer_connections / ((num_inputs * 6) + (6 * num_inputs))) # inverse of: conections / highest connections possible
             population[j][2] = network_efficiency
             network_training_time = layer_connections * iterations * len(training_data)
             print("\tO(n) =", network_training_time)
@@ -47,8 +47,8 @@ def optimize_ANN(data, iterations, pop_size, selection_rate, benchmark):
             network_accuracy = BP.test_network(network, test_data, num_inputs, bias, False)
             population[j][1] = network_accuracy
             # set score of chromosome
-            # score = (network_accuracy * accuracy_weight) + (network_efficiency * efficiency_weight)
-            population[j][3] = network_accuracy
+            score = (network_accuracy * accuracy_weight) + (network_efficiency * efficiency_weight)
+            population[j][3] = score
 
         # print fittest chromosome at benchmark
         if (i % benchmark == 0):
@@ -72,6 +72,7 @@ def optimize_ANN(data, iterations, pop_size, selection_rate, benchmark):
             population = mutate_population(population, mutation_rate, selection_rate)
             mutation_x = (((i / iterations) * 10) + 1.0) # iteration falling in the range from [1, 11]
             mutation_rate = 1 / mutation_x # adjust 1 / x function
+            if (mutation_x > 6): mutation_rate -= 0.08
 
 
 def mutate_population(population, mutation_rate, selection_rate):
@@ -210,10 +211,12 @@ if __name__ == "__main__":
     my_data = fredkinGateData
     my_iterations = 100
     my_pop_size = 20
-    # my_accuracy_weight = 0.95
-    # my_efficiency_weight = 0.05
+    my_accuracy_weight = 1.0
+    my_efficiency_weight = 0.0
     my_selection_rate = 0.5
     my_benchmark = 1
 
     # Build - Train - Test Network
-    optimize_ANN(my_data, my_iterations, my_pop_size, my_selection_rate, my_benchmark)
+    optimize_ANN(my_data, my_iterations, my_pop_size, my_selection_rate, my_accuracy_weight, my_efficiency_weight, my_benchmark)
+    
+    input("Press any key to exit")
